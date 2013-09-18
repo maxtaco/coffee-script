@@ -2490,7 +2490,7 @@ exports.Await = class Await extends Base
 
       # Replace '\' with '\\' to make the emitted code safe for Windows
       # paths.  See Issue #84. Thanks to @Deathspike for this patch
-      fn_rhs = new Value new Literal '"' + o.filename.replace('\\', '\\\\') + '"'
+      fn_rhs = new Value new Literal '"' + o.filename.replace(/\\/g, '\\\\') + '"'
       fn_assignment = new Assign fn_lhs, fn_rhs, "object"
       assignments.push fn_assignment
 
