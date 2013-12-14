@@ -515,6 +515,54 @@ atest 'negative strides (Issue #86 via @davidbau)', (cb) ->
     tot_2 += i
   cb ((last_1 is 1) and (tot_1 is 10) and (last_2 is 2) and (tot_2 is 9)), {}
 
+atest "positive strides", (cb) ->
+  total1 = 0
+  last1 = -1
+  for i in [1..5]
+    await delay defer(), 0
+    total1 += i
+    last1 = i
+  total2 = 0
+  last2 = -1
+  for i in [1...5]
+    await delay defer(), 0
+    total2 += i
+    last2 = i
+  cb ((total1 is 15) and (last1 is 5) and (total2 is 10) and (last2 is 4)), {}
+
+atest "positive strides with expression", (cb) ->
+  count = 6
+  total1 = 0
+  last1 = -1
+  for i in [1..count-1]
+    await delay defer(), 0
+    total1 += i
+    last1 = i
+  total2 = 0
+  last2 = -1
+  for i in [1...count]
+    await delay defer(), 0
+    total2 += i
+    last2 = i
+  cb ((total1 is 15) and (last1 is 5) and (total2 is 15) and (last2 is 5)), {}
+
+atest "negative strides with expression", (cb) ->
+  count = 6
+  total1 = 0
+  last1 = -1
+  for i in [count-1..1]
+    await delay defer(), 0
+    total1 += i
+    last1 = i
+  total2 = 0
+  last2 = -1
+  for i in [count...1]
+    await delay defer(), 0
+    total2 += i
+    last2 = i
+  cb ((total1 is 15) and (last1 is 1) and (total2 is 20) and (last2 is 2)), {}
+
+
 atest "destructuring assignment in defer", (cb) ->
   j = (cb) ->
     await delay defer(), 0

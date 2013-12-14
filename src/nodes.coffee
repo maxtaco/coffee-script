@@ -2954,15 +2954,31 @@ exports.For = class For extends While
       # Handle the case of 'for i in [0..10]'
       # Be careful to handle *negative* stride, see
       # Issue #86 as reported by @davidbau
-      pos = @source.base.from <= @source.base.to
-      rop = if @source.base.exclusive then (if pos then '<'  else '>')
-      else (if pos then '<=' else '>=')
-      condition = new Op rop, @name, @source.base.to
-      init = [ new Assign @name, @source.base.from ]
-      if @step?
-        step = new Op (if pos then "+=" else "-="), @name, @step
+      # Create variables
+      begin = new Value new Literal "_begin"
+      end = new Value new Literal "_end"
+      positive = new Value new Literal "_positive"
+      # Calculate stepping
+      stepVal = @step or new Literal 1
+      step = new If positive, new Op("+=", @name, stepVal)
+      step.addElse new Op("-=", @name, stepVal)
+      # Calculate break condition
+      if @source.base.exclusive
+        pos = new Op "&&", new Op("===", positive, new Literal true), new Op(">=", @name, @source.base.to)
+        neg = new Op "&&", new Op("===", positive, new Literal false), new Op("<=", @name, @source.base.to)
+        condition = new Op "||", new Parens(pos), new Parens(neg)
       else
-        step = new Op (if pos then '++' else "--"), @name
+        pos = new Op "&&", new Op("===", positive, new Literal true), new Op(">", @name, @source.base.to)
+        neg = new Op "&&", new Op("===", positive, new Literal false), new Op("<", @name, @source.base.to)
+        condition = new Op "||", new Parens(pos), new Parens(neg)
+      condition = condition.invert()
+      # Init statements
+      init = [ 
+        new Assign(@name, @source.base.from)
+        new Assign(begin, @source.base.from)
+        new Assign(end, @source.base.to)
+        new Assign(positive, new Op ">", end, begin)
+      ]
 
     # Handle the case of 'for i,blah in arr'
     else if ! @range and @name
