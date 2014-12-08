@@ -2663,7 +2663,7 @@ class IcedRuntime extends Block
     d = __dirname
     # See bug #139 --- on windows if we emit "require 'c:\Document And Settings'",
     # we'll lose the path separators
-    if process.platform is 'windows'
+    if process.platform is 'win32'
       parts = (d.split pathmod.sep).concat [ "..", ".." ]
       parts.join "/"
     else
