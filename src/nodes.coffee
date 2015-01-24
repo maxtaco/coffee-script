@@ -2660,6 +2660,22 @@ exports.Await = class Await extends Base
     super p, o
     @icedNodeFlag = o.foundAwaitFunc = o.foundAwait = true
 
+#### Await.assign
+
+# The **Await.assign** is used to assign a local variable to value,
+# or to set the property of an object -- including within object literals.
+exports.awas = (variable, value, lineno) ->
+  # compile:
+  # x = await expr
+  # to:
+  # await (expr).then(defer x)
+  expr = new Value new Parens value
+  expr_then = expr.add new Access new Value new Literal "then"
+  call = new Call(expr_then, [ new Defer(variable, lineno) ])
+  result = new Await Block.wrap [ call ]
+  return result
+
+
 #### IcedRuntime
 #
 # By default, the iced libraries are require'd via nodejs' require.
