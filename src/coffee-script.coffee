@@ -91,10 +91,14 @@ exports.tokens = withPrettyErrors (code, options) ->
 # return the AST. You can then compile it by calling `.compile()` on the root,
 # or traverse it by using `.traverseChildren()` with a callback.
 exports.nodes = withPrettyErrors (source, options) ->
+  console.log 'uniced', options.uniced
   if typeof source is 'string'
-    iced_transform(parser.parse(lexer.tokenize(source, options)), options)
+    result = parser.parse lexer.tokenize(source, options)
   else
-    iced_transform(parser.parse(source),options)
+    result = parser.parse source
+  if not options.uniced
+    result = iced_transform result, options
+  return result
 
 # Compile and execute a string of CoffeeScript (on the server), correctly
 # setting `__filename`, `__dirname`, and relative `require()`.
