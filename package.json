@@ -2,7 +2,7 @@
   "name": "iced-coffee-script",
   "description": "IcedCoffeeScript",
   "author": "Jeremy Ashkenas + Maxwell Krohn",
-  "version": "1.8.0-d",
+  "version": "1.9.2-a",
   "keywords": [
     "javascript",
     "language",
@@ -36,11 +36,10 @@
     "jison": ">=0.2.0 <=0.4.13",
     "highlight.js": "~8.0.0",
     "underscore": "~1.5.2",
-    "docco": "~0.6.2",
+    "docco": "~0.7.0",
     "browserify": "^4.1.8"
   },
   "dependencies": {
-    "docco": "~0.6.2",
     "iced-runtime": ">=0.0.1",
     "mkdirp": "~0.3.5"
   }

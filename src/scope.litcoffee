@@ -7,24 +7,23 @@ with external scopes.
 
 Import the helpers we plan to use.
 
-    {extend, last} = require './helpers'
     iced = require 'iced-runtime'
-
     exports.Scope = class Scope
-
-The `root` is the top-level **Scope** object for a given file.
-
-      @root: null
 
 Initialize a scope with its parent, for lookups up the chain,
 as well as a reference to the **Block** node it belongs to, which is
-where it should declare its variables, and a reference to the function that
-it belongs to.
+where it should declare its variables, a reference to the function that
+it belongs to, and a list of variables referenced in the source code
+and therefore should be avoided when generating variables.
 
-      constructor: (@parent, @expressions, @method) ->
+      constructor: (@parent, @expressions, @method, @referencedVars) ->
         @variables = [{name: 'arguments', type: 'arguments'}]
         @positions = {}
-        Scope.root = this unless @parent
+        @utilities = {} unless @parent
+
+The `@root` is the top-level **Scope** object for a given file.
+
+        @root = @parent?.root ? this
 
 Adds a new variable or overrides an existing one.
 
@@ -68,11 +67,11 @@ walks up to the root scope.
 
 Generate a temporary variable name at the given index.
 
-      temporary: (name, index) ->
-        if name.length > 1
-          '_' + name + if index > 1 then index - 1 else ''
+      temporary: (name, index, single=false) ->
+        if single
+          (index + parseInt name, 36).toString(36).replace /\d/g, 'a'
         else
-          '_' + (index + parseInt name, 36).toString(36).replace /\d/g, 'a'
+          name + (index or '')
 
 Gets the type of a variable.
 
@@ -83,10 +82,13 @@ Gets the type of a variable.
 If we need to store an intermediate result, find an available name for a
 compiler-generated variable. `_var`, `_var2`, and so on...
 
-      freeVariable: (name, reserve=true) ->
+      freeVariable: (name, options={}) ->
         index = 0
-        index++ while @check((temp = @temporary name, index))
-        @add temp, 'var', yes if reserve
+        loop
+          temp = @temporary name, index, options.single
+          break unless @check(temp) or temp in @root.referencedVars
+          index++
+        @add temp, 'var', yes if options.reserve ? true
         temp
 
 Ensure that an assignment is made at the top of this scope
@@ -104,18 +106,14 @@ Does this scope have any declared variables?
 Return the list of variables first declared in this scope.
 
       declaredVariables: ->
-        realVars = []
-        tempVars = []
 
 An unfortunate iced hack, needed to get __iced_k to show up in the variable
 list and be a parameter for functions in the shared iced scope.  See test case
 'autocb + wait + scoping problems' in test.iced for an example where this is
 needed.
 
-        for v in @variables when ((v.type is 'var') or
-                (v.type is 'param' and v.name is iced.const.k))
-          (if v.name.charAt(0) is '_' then tempVars else realVars).push v.name
-        realVars.sort().concat tempVars.sort()
+        keep = (v) -> v.type is 'var' or (v.type is 'param' and v.name is iced.const.k)
+        (v.name for v in @variables when keep v).sort()
 
 Return the list of assignments that are supposed to be made at the top
 of this scope.

@@ -14,7 +14,7 @@ iced_transform = require('./iced').transform
 iced_runtime   = require 'iced-runtime'
 
 # The current CoffeeScript version number.
-exports.VERSION = '1.8.0-d'
+exports.VERSION = '1.9.2-a'
 
 exports.FILE_EXTENSIONS = ['.coffee', '.litcoffee', '.coffee.md', '.iced', '.liticed', '.iced.md']
 
@@ -28,6 +28,7 @@ withPrettyErrors = (fn) ->
     try
       fn.call @, code, options
     catch err
+      throw err if typeof code isnt 'string' # Support `CoffeeScript.nodes(tokens)`.
       throw helpers.updateSyntaxError err, code, options.filename
 
 # Compile CoffeeScript code to JavaScript, using the Coffee/Jison compiler.
@@ -46,7 +47,15 @@ exports.compile = compile = withPrettyErrors (code, options) ->
   if options.sourceMap
     map = new SourceMap
 
-  fragments = (iced_transform(parser.parse(lexer.tokenize code, options), options)).compileToFragments options
+  tokens = lexer.tokenize code, options
+
+  # Pass a list of referenced variables, so that generated variables won't get
+  # the same name.
+  options.referencedVars = (
+    token[1] for token in tokens when token.variable
+  )
+
+  fragments = iced_transform(parser.parse(tokens)).compileToFragments options
 
   currentLine = 0
   currentLine += 1 if options.header
@@ -56,7 +65,8 @@ exports.compile = compile = withPrettyErrors (code, options) ->
   for fragment in fragments
     # Update the sourcemap with data from each fragment
     if options.sourceMap
-      if fragment.locationData
+      # Do not include empty, whitespace, or semicolon-only fragments.
+      if fragment.locationData and not /^[;\s]*$/.test fragment.code
         map.add(
           [fragment.locationData.first_line, fragment.locationData.first_column]
           [currentLine, currentColumn]
@@ -127,13 +137,17 @@ exports.run = (code, options = {}) ->
 # The CoffeeScript REPL uses this to run the input.
 exports.eval = (code, options = {}) ->
   return unless code = code.trim()
-  Script = vm.Script
-  if Script
+  createContext = vm.Script.createContext ? vm.createContext
+
+  isContext = vm.isContext ? (ctx) ->
+    options.sandbox instanceof createContext().constructor
+
+  if createContext
     if options.sandbox?
-      if options.sandbox instanceof Script.createContext().constructor
+      if isContext options.sandbox
         sandbox = options.sandbox
       else
-        sandbox = Script.createContext()
+        sandbox = createContext()
         sandbox[k] = v for own k, v of options.sandbox
       sandbox.global = sandbox.root = sandbox.GLOBAL = sandbox
     else
@@ -194,16 +208,17 @@ lexer = new Lexer
 # directly as a "Jison lexer".
 parser.lexer =
   lex: ->
-    token = @tokens[@pos++]
+    token = parser.tokens[@pos++]
     if token
       [tag, @yytext, @yylloc] = token
-      @errorToken = token.origin or token
+      parser.errorToken = token.origin or token
       @yylineno = @yylloc.first_line
     else
       tag = ''
 
     tag
-  setInput: (@tokens) ->
+  setInput: (tokens) ->
+    parser.tokens = tokens
     @pos = 0
   upcomingInput: ->
     ""
@@ -218,15 +233,18 @@ parser.yy.parseError = (message, {token}) ->
   # Disregard Jison's message, it contains redundant line numer information.
   # Disregard the token, we take its value directly from the lexer in case
   # the error is caused by a generated token which might refer to its origin.
-  {errorToken, tokens} = parser.lexer
+  {errorToken, tokens} = parser
   [errorTag, errorText, errorLoc] = errorToken
 
-  errorText = if errorToken is tokens[tokens.length - 1]
-    'end of input'
-  else if errorTag in ['INDENT', 'OUTDENT']
-    'indentation'
-  else
-    helpers.nameWhitespaceCharacter errorText
+  errorText = switch
+    when errorToken is tokens[tokens.length - 1]
+      'end of input'
+    when errorTag in ['INDENT', 'OUTDENT']
+      'indentation'
+    when errorTag in ['IDENTIFIER', 'NUMBER', 'STRING', 'STRING_START', 'REGEX', 'REGEX_START']
+      errorTag.replace(/_START$/, '').toLowerCase()
+    else
+      helpers.nameWhitespaceCharacter errorText
 
   # The second argument has a `loc` property, which should have the location
   # data for this token. Unfortunately, Jison seems to send an outdated `loc`
@@ -312,4 +330,3 @@ Error.prepareStackTrace = (err, stack) ->
     "  at #{formatSourcePosition frame, getSourceMapping}"
 
   "#{err.toString()}\n#{frames.join '\n'}\n"
-

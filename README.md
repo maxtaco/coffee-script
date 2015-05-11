@@ -60,3 +60,9 @@ The source repository: https://github.com/maxtaco/coffee-script.git
 
 Our lovely and talented contributors are listed [here](https://github.com/maxtaco/coffee-script/contributors) and [here](https://github.com/jashkenas/coffeescript/contributors).
 
+<<<<<<< HEAD
+=======
+Changelog: http://coffeescript.org/#changelog
+
+Our lovely and talented contributors are listed here: http://github.com/jashkenas/coffeescript/contributors
+>>>>>>> master
