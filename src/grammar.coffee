@@ -38,7 +38,7 @@ o = (patternString, action, options) ->
 
   # All runtime functions we need are defined on "yy"
   action = action.replace /\bnew /g, '$&yy.'
-  action = action.replace /\b(?:Block\.wrap|extend)\b/g, 'yy.$&'
+  action = action.replace /\b(?:Block\.wrap|extend|makewait)\b/g, 'yy.$&'
 
   # Returns a function which adds location data to the first parameter passed
   # in, and returns the parameter.  If the parameter is not a node, it will
@@ -85,6 +85,7 @@ grammar =
 
   # Block and statements, which make up a line in a body.
   Line: [
+    o 'AwaitAssign'
     o 'Expression'
     o 'Statement'
   ]
@@ -98,8 +99,15 @@ grammar =
   ]
 
   Await: [
-    o 'AWAIT Block',                             -> new Await $2
-    o 'AWAIT Expression',                        -> new Await Block.wrap [$2 ]
+    o 'AWAIT Block',                             -> makewait false, $2, yylineno
+    o 'AWAIT Expression',                        -> makewait true, $2, yylineno
+  ]
+
+  # ECMAScript 7-style x = await fn()
+  AwaitAssign: [
+    o 'Assignable = AWAIT Expression',                -> makewait $1, $4, yylineno
+    o 'Assignable = TERMINATOR AWAIT Expression',     -> makewait $1, $5, yylineno
+    o 'Assignable = INDENT AWAIT Expression OUTDENT', -> makewait $1, $5, yylineno
   ]
 
   # All the different types of expressions in our language. The basic unit of

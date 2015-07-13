@@ -51,6 +51,7 @@ SWITCHES = [
   ['-s', '--stdio',           'listen for and compile scripts over stdio']
   ['-l', '--literate',        'treat stdio as literate style coffee-script']
   ['-t', '--tokens',          'print out the tokens that the lexer/rewriter produce']
+  ['-u', '--uniced',          'print out the uniced parse tree that the parser produces']
   ['-v', '--version',         'display the version number']
   ['-w', '--watch',           'watch scripts for changes and rerun commands']
   ['-I', '--runtime [WHICH]', "how to include the iced runtime, one of #{runtime_modes_str}; default is 'node'" ]
@@ -168,8 +169,9 @@ compileScript = (file, input, base = null) ->
     CoffeeScript.emit 'compile', task
     if o.tokens
       printTokens CoffeeScript.tokens t.input, t.options
-    else if o.nodes
-      printLine CoffeeScript.nodes(t.input, t.options).toString().trim()
+    else if o.nodes or o.uniced
+      printLine CoffeeScript.nodes(
+          t.input, t.options, o.uniced).toString().trim()
     else if o.run
       CoffeeScript.register()
       CoffeeScript.run t.input, t.options
@@ -403,6 +405,7 @@ compileOptions = (filename, base) ->
     sourceMap: opts.map
     runtime : opts.runtime
     runforce : opts.runforce
+    uniced: opts.uniced
   }
   if filename
     if base
