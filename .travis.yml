@@ -16,3 +16,5 @@ before_script:
   - node ./bin/cake build:inline-runtime
 script:
   - node ./bin/cake test && node ./bin/cake build:browser
+notifications:
+  email: false
