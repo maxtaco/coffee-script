@@ -6,6 +6,6 @@ before_script:
   - node ./bin/cake build:parser
   - node ./bin/cake build
   - node ./bin/cake build:inline-runtime
-  - node ./bin/cake build:browser
 script:
   - node ./bin/cake test
+  - node ./bin/cake build:browser
