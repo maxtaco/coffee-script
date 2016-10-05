@@ -1,6 +1,14 @@
 language: node_js
 node_js:
     - "node"
+    - "6.1"
+    - "6.0"
+    - "5.11"
+    - "5.10"
+    - "5.9"
+    - "5.0"
+    - "4.4"
+    - "4.0"
 before_script:
   - node ./bin/cake build
   - node ./bin/cake build:parser
