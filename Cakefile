@@ -308,7 +308,7 @@ runTests = (CoffeeScript) ->
         description: description if description?
         #source: fn.toString() if fn.toString?
 
-  process.version_num = Number(process.version.match(/^v(\d+\.\d+)/)[1])
+  process.version_num = process.version.match('v([0-9.]+)')[1].split('.').map (x)-> parseInt x
 
   # End Iced additions
   # ----

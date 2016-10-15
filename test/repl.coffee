@@ -64,7 +64,7 @@ testRepl "variables are saved", (input, output) ->
   input.emitLine 'foobar = "#{foo}bar"'
   eq "'foobar'", output.lastWrite()
 
-if process.version_num > 5.10
+if process.version_num[0] >= 5 and process.version_num[1] >= 11
   # Behavior of REPL in Node was changed after 5.11. 5.10 is the last version
   # to not print "undefined" after empty output.
   testRepl "empty command evaluates to undefined", (input, output) ->
