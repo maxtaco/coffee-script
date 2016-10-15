@@ -72,6 +72,9 @@ if process.version_num <= 5.10
     eq 'undefined', output.lastWrite()
 
 testRepl "undefined is printed in the repl", (input, output) ->
+  # Warm up the REPL, versions 6.0+ print "Expression assignment to _
+  # now disabled." after first evaluation.
+  input.emitLine ''
   # console.log returns undefined, which should be printed in REPL as well.
   input.emitLine 'console.log(\'hello world\')'
   eq 'hello world', output.lastWrite(-2)
