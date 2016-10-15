@@ -308,7 +308,7 @@ runTests = (CoffeeScript) ->
         description: description if description?
         #source: fn.toString() if fn.toString?
 
-  global.node_version = Number(process.version.match(/^v(\d+\.\d+)/)[1])
+  process.version_num = Number(process.version.match(/^v(\d+\.\d+)/)[1])
 
   # End Iced additions
   # ----
