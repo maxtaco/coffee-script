@@ -64,9 +64,18 @@ testRepl "variables are saved", (input, output) ->
   input.emitLine 'foobar = "#{foo}bar"'
   eq "'foobar'", output.lastWrite()
 
-testRepl "empty command evaluates to undefined", (input, output) ->
-  input.emitLine ''
-  eq 'undefined', output.lastWrite()
+if process.version_num <= 5.10
+  # Behavior of REPL in Node was changed after 5.11. 5.10 is the last version
+  # to not print "undefined" after empty output.
+  testRepl "empty command evaluates to undefined", (input, output) ->
+    input.emitLine ''
+    eq 'undefined', output.lastWrite()
+
+testRepl "undefined is printed in the repl", (input, output) ->
+  # console.log returns undefined, which should be printed in REPL as well.
+  input.emitLine 'console.log(\'hello world\')'
+  eq 'hello world', output.lastWrite(-2)
+  eq 'undefined', output.lastWrite(-1)
 
 testRepl "ctrl-v toggles multiline prompt", (input, output) ->
   input.emit 'keypress', null, ctrlV
