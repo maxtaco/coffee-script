@@ -23,7 +23,7 @@
   },
   "files": [
     "bin",
-    "lib",
+    "lib-iced",
     "register.js",
     "repl.js"
   ],
