@@ -845,3 +845,11 @@ atest "await expression assertions 1", (cb) ->
         else 20
 '''
   cb true, {}
+
+atest "await expression errors", (cb) ->
+  # forgetting `,` between `err` and `result` makes it a function
+  # call, which is invalid iced slot. make sure the error mentions
+  # that.
+  code = "await foo defer err result"
+  throws (-> CoffeeScript.compile code), /function call cannot be a slot/
+  cb true, {}

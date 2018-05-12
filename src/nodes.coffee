@@ -1096,6 +1096,8 @@ exports.Call = class Call extends Base
       answer = answer.concat fun
     answer = answer.concat @makeCode(".apply(#{ref}, "), splatArgs, @makeCode(")")
 
+  icedToSlot : () -> @error "function call cannot be a slot for defer"
+
 #### Extends
 
 # Node to extend an object's prototype with an ancestor object.

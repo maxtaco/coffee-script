@@ -14,7 +14,7 @@ iced_transform = require('./iced').transform
 iced_runtime   = require 'iced-runtime'
 
 # The current CoffeeScript version number.
-exports.VERSION = '108.0.10'
+exports.VERSION = '108.0.11'
 
 exports.FILE_EXTENSIONS = ['.coffee', '.litcoffee', '.coffee.md', '.iced', '.liticed', '.iced.md']
 
@@ -132,11 +132,16 @@ exports.eval = (code, options = {}) ->
   return unless code = code.trim()
   Script = vm.Script
   if Script
+    # Node API compatibility
+    createContext = vm.Script.createContext ? vm.createContext
+    isContext = vm.isContext ? (ctx) ->
+      options.sandbox instanceof createContext().constructor
+
     if options.sandbox?
-      if options.sandbox instanceof Script.createContext().constructor
+      if isContext options.sandbox
         sandbox = options.sandbox
       else
-        sandbox = Script.createContext()
+        sandbox = createContext()
         sandbox[k] = v for own k, v of options.sandbox
       sandbox.global = sandbox.root = sandbox.GLOBAL = sandbox
     else
