@@ -1,3 +1,7 @@
+## v108.0.12 (2019-04-30)
+- Remove mkdirp
+- Recompile and fix disagreement between GitHub and npm
+
 ## v108.0.9
 
 - Bugfix: @zapu's PR for incorrect looping semantics, things like CoffeeScript's `for i in [10...3] by -1`.

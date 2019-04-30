@@ -147,13 +147,12 @@ task 'build:browser', 'rebuild the merged script for inclusion in the browser', 
   await b.bundle { standalone : 'CoffeeScript' }, defer err, code
   console.error err if err?
   code = "(function(root){\n" + code + "\nif (typeof CoffeeScript !== 'undefined') { root.CoffeeScript = CoffeeScript; }\n})(this);"
-
   fs.writeFileSync outFileName(false), header + '\n' + code
   unless process.env.MINIFY is 'false'
     {code} = require('uglify-js').minify code, fromString: true
     fs.writeFileSync outFileName(true), header + '\n' + code
 
-  console.log "built ... running browser tests:"
+  console.log "built ... running browser tests: (" + outFileName(false) + ")"
   invoke 'test:browser'
 
 task 'doc:site', 'watch and continually rebuild the documentation for the website', ->
