@@ -1,6 +1,7 @@
 ## v108.0.12 (2019-04-30)
 - Remove mkdirp
 - Recompile and fix disagreement between GitHub and npm
+- upgrade old buggy modules like browserify and uglify
 
 ## v108.0.9
 

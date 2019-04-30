@@ -142,9 +142,9 @@ outFileName = (min) ->
 
 task 'build:browser', 'rebuild the merged script for inclusion in the browser', ->
   browserify = require 'browserify'
-  b = browserify()
+  b = browserify({standalone : 'CoffeeScript'})
   b.add "./lib/coffee-script/browser.js"
-  await b.bundle { standalone : 'CoffeeScript' }, defer err, code
+  await b.bundle defer err, code
   console.error err if err?
   code = "(function(root){\n" + code + "\nif (typeof CoffeeScript !== 'undefined') { root.CoffeeScript = CoffeeScript; }\n})(this);"
   fs.writeFileSync outFileName(false), header + '\n' + code

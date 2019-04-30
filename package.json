@@ -32,11 +32,11 @@
     "url": "git://github.com/maxtaco/coffee-script.git"
   },
   "devDependencies": {
-    "jison": ">=0.2.0 <=0.4.13",
-    "highlight.js": "~8.0.0",
-    "underscore": "~1.5.2",
+    "browserify": "^16.2.3",
     "docco": "~0.6.2",
-    "browserify": "^4.1.8"
+    "highlight.js": "~8.0.0",
+    "jison": ">=0.2.0 <=0.4.13",
+    "underscore": "~1.5.2"
   },
   "dependencies": {
     "iced-runtime": ">=0.0.1",
