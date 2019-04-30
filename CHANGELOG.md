@@ -1,3 +1,6 @@
+## v108.0.13 (2019-04-30)
+- Fix error on repl exit
+
 ## v108.0.12 (2019-04-30)
 - Remove mkdirp
 - Recompile and fix disagreement between GitHub and npm
