@@ -32,7 +32,6 @@
     "url": "git://github.com/maxtaco/coffee-script.git"
   },
   "devDependencies": {
-    "uglify-js": "~2.2",
     "jison": ">=0.2.0 <=0.4.13",
     "highlight.js": "~8.0.0",
     "underscore": "~1.5.2",
@@ -40,6 +39,7 @@
     "browserify": "^4.1.8"
   },
   "dependencies": {
-    "iced-runtime": ">=0.0.1"
+    "iced-runtime": ">=0.0.1",
+    "uglify-js": "^3.5.9"
   }
 }

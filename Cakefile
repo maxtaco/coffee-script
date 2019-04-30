@@ -149,7 +149,7 @@ task 'build:browser', 'rebuild the merged script for inclusion in the browser', 
   code = "(function(root){\n" + code + "\nif (typeof CoffeeScript !== 'undefined') { root.CoffeeScript = CoffeeScript; }\n})(this);"
   fs.writeFileSync outFileName(false), header + '\n' + code
   unless process.env.MINIFY is 'false'
-    {code} = require('uglify-js').minify code, fromString: true
+    {code} = require('uglify-js').minify code
     fs.writeFileSync outFileName(true), header + '\n' + code
 
   console.log "built ... running browser tests: (" + outFileName(false) + ")"
