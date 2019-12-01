@@ -13,6 +13,8 @@ helpers        = require './helpers'
 iced_transform = require('./iced').transform
 iced_runtime   = require 'iced-runtime'
 
+source_map_support_lazy = -> require('source-map-support')
+
 # The current CoffeeScript version number.
 exports.VERSION = '108.0.12'
 
@@ -29,6 +31,12 @@ withPrettyErrors = (fn) ->
       fn.call @, code, options
     catch err
       throw helpers.updateSyntaxError err, code, options.filename
+
+# Map of filename -> compiled object ({js, sourceMap, v3SourceMap}). We
+# are caching full objects for stack trace formatting. We have to be able
+# to tell which files are compiled by this compiler, and provide v3SourceMap
+# object used by source-map-support
+compileCache = new Map()
 
 # Compile CoffeeScript code to JavaScript, using the Coffee/Jison compiler.
 #
@@ -78,10 +86,15 @@ exports.compile = compile = withPrettyErrors (code, options) ->
   if options.sourceMap
     answer = {js}
     answer.sourceMap = map
+    if options.filename
+      options.sourceFiles = [options.filename]
     answer.v3SourceMap = map.generate(options, code)
-    answer
+    if options.filename
+      # Save for stack trace formatting.
+      compileCache.set(options.filename, answer)
+    return answer
   else
-    js
+    return js
 
 # Tokenize a string of CoffeeScript code, and return the array of tokens.
 exports.tokens = withPrettyErrors (code, options) ->
@@ -121,6 +134,7 @@ exports.run = (code, options = {}) ->
   # Compile.
   if not helpers.isCoffee(mainModule.filename) or require.extensions
     options.runtime = "interp" # look for the runtime relative to the "iced-coffee-script" compiler
+    options.sourceMap = yes
     answer = compile code, options
     code = answer.js ? answer
 
@@ -290,21 +304,27 @@ formatSourcePosition = (frame, getSourceMapping) ->
   else
     fileLocation
 
-# Map of filenames -> sourceMap object.
-sourceMaps = {}
-
-# Generates the source map for a coffee file and stores it in the local cache variable.
+# Either get cached source map, or compile agian. For legacy
+# source map processing.
 getSourceMap = (filename) ->
-  return sourceMaps[filename] if sourceMaps[filename]
+  if compileCache.has(filename)
+    return compileCache.get(filename).sourceMap
   return unless path?.extname(filename) in exports.FILE_EXTENSIONS
   answer = exports._compileFile filename, true
-  sourceMaps[filename] = answer.sourceMap
+  return answer.sourceMap
 
 # Based on [michaelficarra/CoffeeScriptRedux](http://goo.gl/ZTx1p)
 # NodeJS / V8 have no support for transforming positions in stack traces using
 # sourceMap, so we must monkey-patch Error to display CoffeeScript source
 # positions.
-Error.prepareStackTrace = (err, stack) ->
+#
+# This is considered an outdated method of doing this as it doesn't support
+# installing multiple source map handlers for different compilers that may be
+# registered at the same time. It has to be enabled manually with:
+# ```
+# require('iced-coffee-script').installPrepareStackTrace()
+# ```
+prepareStackTrace = (err, stack) ->
   getSourceMapping = (filename, line, column) ->
     sourceMap = getSourceMap filename
     answer = sourceMap.sourceLocation [line - 1, column - 1] if sourceMap
@@ -316,3 +336,20 @@ Error.prepareStackTrace = (err, stack) ->
 
   "#{err.toString()}\n#{frames.join '\n'}\n"
 
+exports.installPrepareStackTrace = ->
+  Error.prepareStackTrace = prepareStackTrace
+
+# Use source-map-support module to modify Error prototype to support source-map
+# translation of stack frames that come from iced files compiled by this instance
+# of IcedCoffeeScript compiler.
+exports.installSourceMapSupport = (opts, sourceMapSupport) ->
+  opts.retrieveSourceMap = (filename) ->
+    compileObj = compileCache.get(filename)
+    if compileObj
+      # It's compiled by us, return the source map.
+      return { map : compileObj.v3SourceMap }
+    else
+      # Defer to next (or default) handler in source-map-support.
+      return null
+
+  (sourceMapSupport ? source_map_support_lazy()).install opts
