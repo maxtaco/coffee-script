@@ -8,7 +8,7 @@ nonce = {}
 # Throw
 
 test "basic exception throwing", ->
-  throws (-> throw 'error'), 'error'
+  throws (-> throw 'example error'), /^example error$/
 
 
 # Empty Try/Catch/Finally
