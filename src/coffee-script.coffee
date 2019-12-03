@@ -11,6 +11,8 @@ path          = require 'path'
 helpers       = require './helpers'
 SourceMap     = require './sourcemap'
 
+source_map_support_lazy = -> require('source-map-support')
+
 # CoffeeScript (original) version which this iced patchset is based on.
 # CoffeeScript 1 is no longer being developed with exception of occasional
 # patches.
@@ -24,7 +26,7 @@ exports.ICED_VERSION = '112.8.0'
 try
   # If available, use version from package.json. Require `package.json`, which
   # is two levels above this file, as this file is typically evaluated from
-  # `lib/coffee-script`. 
+  # `lib/coffee-script`.
   # TODO: UNDECIDED
   # packageJson   = require '../../package.json'
   # exports.VERSION = packageJson.version
@@ -140,13 +142,15 @@ exports.compile = compile = withPrettyErrors (code, options) ->
     js = "// #{header}\n#{js}"
 
   if generateSourceMap
+    if options.filename
+      options.sourceFiles = [options.filename]
     v3SourceMap = map.generate(options, code)
-    sourceMaps[filename] = map
+    sourceMaps[filename] = { map, v3SourceMap }
 
   if options.inlineMap
     encoded = base64encode JSON.stringify v3SourceMap
     sourceMapDataURI = "//# sourceMappingURL=data:application/json;base64,#{encoded}"
-    sourceURL = "//# sourceURL=#{options.filename ? 'coffeescript'}"
+    sourceURL = "//# sourceURL=#{options.filename ? 'iced-coffee-script'}"
     js = "#{js}\n#{sourceMapDataURI}\n#{sourceURL}"
 
   if options.sourceMap
@@ -370,20 +374,22 @@ formatSourcePosition = (frame, getSourceMapping) ->
   else
     fileLocation
 
-getSourceMap = (filename) ->
+# Either get cached source map, or compile again. For legacy
+# source map processing.
+getSourceMap = (filename, allowAnonymous = no) ->
   if sourceMaps[filename]?
     sourceMaps[filename]
   # CoffeeScript compiled in a browser may get compiled with `options.filename`
   # of `<anonymous>`, but the browser may request the stack trace with the
   # filename of the script file.
-  else if sourceMaps['<anonymous>']?
+  else if allowAnonymous and sourceMaps['<anonymous>']?
     sourceMaps['<anonymous>']
   else if sources[filename]?
     answer = compile sources[filename],
       filename: filename
       sourceMap: yes
       literate: helpers.isLiterate filename
-    answer.sourceMap
+    answer
   else
     null
 
@@ -391,10 +397,17 @@ getSourceMap = (filename) ->
 # NodeJS / V8 have no support for transforming positions in stack traces using
 # sourceMap, so we must monkey-patch Error to display CoffeeScript source
 # positions.
-Error.prepareStackTrace = (err, stack) ->
+#
+# This is considered an outdated method of doing this as it doesn't support
+# installing multiple source map handlers for different compilers that may be
+# registered at the same time. It has to be enabled manually with:
+# ```
+# require('iced-coffee-script-3').installPrepareStackTrace()
+# ```
+prepareStackTrace = (err, stack) ->
   getSourceMapping = (filename, line, column) ->
-    sourceMap = getSourceMap filename
-    answer = sourceMap.sourceLocation [line - 1, column - 1] if sourceMap?
+    sourceMap = getSourceMap filename, yes
+    answer = sourceMap.map.sourceLocation [line - 1, column - 1] if sourceMap?
     if answer? then [answer[0] + 1, answer[1] + 1] else null
 
   frames = for frame in stack
@@ -402,3 +415,21 @@ Error.prepareStackTrace = (err, stack) ->
     "    at #{formatSourcePosition frame, getSourceMapping}"
 
   "#{err.toString()}\n#{frames.join '\n'}\n"
+
+exports.installPrepareStackTrace = ->
+  Error.prepareStackTrace = prepareStackTrace
+
+# Use source-map-support module to modify Error prototype to support source-map
+# translation of stack frames that come from iced files compiled by this instance
+# of IcedCoffeeScript compiler.
+exports.installSourceMapSupport = (opts, sourceMapSupport) ->
+  opts.retrieveSourceMap = (filename) ->
+    sourceMap = getSourceMap filename
+    if sourceMap
+      # It's compiled by us, return the source map.
+      return { map : sourceMap.v3SourceMap }
+    else
+      # Defer to next (or default) handler in source-map-support.
+      return null
+
+  (sourceMapSupport ? source_map_support_lazy()).install opts
