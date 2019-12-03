@@ -63,8 +63,10 @@ if require?
     ok err.stack.match /test[\/\\]error_messages\.coffee:\d+:\d+\b/
 
   test "patchStackTrace stack prelude consistent with V8", ->
+    # This test freezes error stack trace formatting but that
+    # ultimately depends on 'source-map-support' library.
     err = new Error
-    ok err.stack.match /^Error\n/ # Notice no colon when no message.
+    ok err.stack.match /^Error: \n/
 
     err = new Error 'error'
     ok err.stack.match /^Error: error\n/

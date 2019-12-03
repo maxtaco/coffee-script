@@ -449,7 +449,7 @@ runTests = (CoffeeScript) ->
 
   # End Iced additions
   # ----
-  
+
   helpers.extend global, require './test/support/helpers'
 
   # When all the tests have run, collect and print errors.
