@@ -379,13 +379,13 @@ formatSourcePosition = (frame, getSourceMapping) ->
 
 # Either get cached source map, or compile again. For legacy
 # source map processing.
-getSourceMap = (filename, allowAnonymous = no) ->
+getSourceMap = (filename, defaultAnonymous = no) ->
   if sourceMaps[filename]?
     sourceMaps[filename]
   # CoffeeScript compiled in a browser may get compiled with `options.filename`
   # of `<anonymous iced3>`, but the browser may request the stack trace with the
   # filename of the script file.
-  else if allowAnonymous and (anonMap = sourceMaps[ANONYMOUS_TAG])?
+  else if defaultAnonymous and (anonMap = sourceMaps[ANONYMOUS_TAG])?
     anonMap
   else if sources[filename]?
     answer = compile sources[filename],
