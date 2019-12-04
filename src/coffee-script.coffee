@@ -43,6 +43,10 @@ sources = {}
 # Also save source maps if generated, in form of `filename`: `(source map)`.
 sourceMaps = {}
 
+# "filename" used as module.filename when no filename was provided,
+# e.g. when using CoffeeScript.run directly.
+ANONYMOUS_TAG = '<anonymous iced>'
+
 # Compile CoffeeScript code to JavaScript, using the Coffee/Jison compiler.
 #
 # If `options.sourceMap` is specified, then `options.filename` must also be specified.  All
@@ -55,8 +59,11 @@ sourceMaps = {}
 exports.compile = compile = withPrettyErrors (code, options) ->
   {merge, extend} = helpers
   options = extend {}, options
-  generateSourceMap = options.sourceMap or options.inlineMap
-  filename = options.filename or '<anonymous>'
+  # Always generate a source map if no filename is passed in, since without a
+  # a filename we have no way to retrieve this source later in the event that
+  # we need to recompile it to get a source map for `prepareStackTrace`.
+  generateSourceMap = options.sourceMap or options.inlineMap or not options.filename?
+  filename = options.filename or ANONYMOUS_TAG
 
   sources[filename] = code
   if generateSourceMap
@@ -92,8 +99,7 @@ exports.compile = compile = withPrettyErrors (code, options) ->
     js = "// #{header}\n#{js}"
 
   if generateSourceMap
-    if options.filename
-      options.sourceFiles = [options.filename]
+    options.sourceFiles = [filename]
     v3SourceMap = map.generate(options, code)
     sourceMaps[filename] = { map, v3SourceMap }
 
@@ -135,7 +141,7 @@ exports.run = (code, options = {}) ->
 
   # Set the filename.
   mainModule.filename = process.argv[1] =
-    if options.filename then fs.realpathSync(options.filename) else '.'
+    if options.filename then fs.realpathSync(options.filename) else ANONYMOUS_TAG
 
   # Clear the module cache.
   mainModule.moduleCache and= {}
@@ -321,14 +327,14 @@ formatSourcePosition = (frame, getSourceMapping) ->
 
 # Either get cached source map, or compile again. For legacy
 # source map processing.
-getSourceMap = (filename, allowAnonymous = no) ->
+getSourceMap = (filename, defaultAnonymous = no) ->
   if sourceMaps[filename]?
     sourceMaps[filename]
   # CoffeeScript compiled in a browser may get compiled with `options.filename`
-  # of `<anonymous>`, but the browser may request the stack trace with the
+  # of `<anonymous iced>`, but the browser may request the stack trace with the
   # filename of the script file.
-  else if allowAnonymous and sourceMaps['<anonymous>']?
-    sourceMaps['<anonymous>']
+  else if defaultAnonymous and (anonMap = sourceMaps[ANONYMOUS_TAG])?
+    anonMap
   else if sources[filename]?
     answer = compile sources[filename],
       filename: filename

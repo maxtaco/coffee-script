@@ -53,4 +53,5 @@ if child_process
 CoffeeScript.installSourceMapSupport({
   environment: 'node'
   handleUncaughtExceptions: false
+  emptyCacheBetweenOperations: true
 })
