@@ -21,7 +21,7 @@ exports.VERSION = exports.COFFEE_VERSION
 # IcedCoffeeScript version. We used to derive ICED_VERSION from COFFEE_VERSION
 # which Iced patched was based on, and Iced3 is consistent with that scheme.
 # The scheme is as following: `v[0] * 100 + v[1], v[2], ICED_PATCH_VERSION`
-exports.ICED_VERSION = '112.8.0'
+exports.ICED_VERSION = '112.8.1'
 
 try
   # If available, use version from package.json. Require `package.json`, which
