@@ -3,7 +3,7 @@
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
   <title>CoffeeScript Test Suite</title>
-  <script src="../extras/coffee-script.js"></script>
+  <script src="../extras/iced-coffee-script-108.0.14.js"></script>
   <style>
     body {
       margin: 30px;
@@ -22,6 +22,7 @@
   <pre id="stdout"></pre>
 
   <script type="text/coffeescript">
+  @iced = CoffeeScript.require 'iced-runtime'
 
   stdout  = document.getElementById 'stdout'
   start   = new Date
@@ -35,6 +36,9 @@
 
   @test = (desc, fn) ->
     fn()
+
+  @atest = (description, fn) ->
+    fn.call fn, (result) -> ok result
 
   @ok = (good, msg) ->
     ++total
@@ -111,6 +115,8 @@
     'slicing_and_splicing'
     'soaks'
     'strings'
+    'iced'
+    'iced_advanced'
   ]
   # allow utf-8 chars in comments
   # 智に働けば角が立つ、情に掉させば流される。
