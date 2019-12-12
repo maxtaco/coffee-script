@@ -16,7 +16,7 @@ iced_runtime   = require 'iced-runtime'
 source_map_support_lazy = -> require('source-map-support')
 
 # The current CoffeeScript version number.
-exports.VERSION = '108.0.12'
+exports.VERSION = '108.0.15'
 
 exports.FILE_EXTENSIONS = ['.coffee', '.litcoffee', '.coffee.md', '.iced', '.liticed', '.iced.md']
 
