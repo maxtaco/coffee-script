@@ -78,3 +78,27 @@ For documentation, usage, and examples, see: http://coffeescript.org/
 To suggest a feature or report a bug: http://github.com/maxtaco/coffeescript/issues
 
 The source repository: https://github.com/maxtaco/coffeescript.git
+
+## Note about `source-map-support`
+
+Since v112.8.1 (2019-12-20), IcedCoffeeScript v3 uses `source-map-support`
+package to handle location mapping for stack traces for errors coming from
+IcedCoffeeScript code. It's enabled by default when using `iced3` to run scripts
+or when using `register` to enable IcedCoffeeScript in Node's module system.
+
+To enable it manually (e.g. in environments other than Node.js or when not
+using `register`), use the following API:
+
+```
+require('iced-coffee-script-3').installSourceMapSupport({})
+```
+
+This function can also be called with options for `source-map-support` instead
+of an empty object. Available options are described in `source-map-support`
+README file.
+
+To use the old error handler, use the following API instead:
+
+```
+require('iced-coffee-script-3').installPrepareStackTrace()
+```
