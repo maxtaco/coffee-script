@@ -317,4 +317,11 @@ task 'test:browser', 'run the test suite against the merged browser script', ->
   result = {}
   global.testingBrowser = yes
   (-> eval source).call result
+  # When testing browser build, install custom prepareStackTrace handler instead
+  # of source-map-support. `CoffeeScript.run` is pulled from `browser.coffee` in
+  # browser build, and it's incompatible with our source-map-support hooks.
+  result.CoffeeScript.installPrepareStackTrace()
+  # WARNING: This task does not work properly right now for some reason. Somehow
+  # functions like `run` still come from `coffee-script.coffee` instead
+  # of `browser.coffee` in `result.CoffeeScript`.
   runTests result.CoffeeScript

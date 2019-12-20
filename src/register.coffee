@@ -48,3 +48,10 @@ if child_process
       args = [path].concat args
       path = binary
     fork path, args, options
+
+# Automatically install source map support when registering.
+CoffeeScript.installSourceMapSupport({
+  environment: 'node'
+  handleUncaughtExceptions: false
+  emptyCacheBetweenOperations: true
+})

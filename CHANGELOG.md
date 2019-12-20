@@ -1,3 +1,18 @@
+## v108.0.15 (2019-12-20)
+
+- Use `source-map-support` package for mapping stack trace line numbers to
+  original iced/coffee file line numbers.
+
+  This is potentially a breaking change, depending how you use or integrate
+  with IcedCoffeeScript. The old behavior can be restored by calling the
+  following new IcedCoffeeScript API:
+
+  ```
+  require('iced-coffee-script').installPrepareStackTrace()
+  ```
+
+  See the README file for more information.
+
 ## v108.0.13 (2019-04-30)
 - Fix error on repl exit
 
