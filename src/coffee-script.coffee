@@ -11,6 +11,8 @@ path          = require 'path'
 helpers       = require './helpers'
 SourceMap     = require './sourcemap'
 
+source_map_support_lazy = -> require('source-map-support')
+
 # CoffeeScript (original) version which this iced patchset is based on.
 # CoffeeScript 1 is no longer being developed with exception of occasional
 # patches.
@@ -19,12 +21,12 @@ exports.VERSION = exports.COFFEE_VERSION
 # IcedCoffeeScript version. We used to derive ICED_VERSION from COFFEE_VERSION
 # which Iced patched was based on, and Iced3 is consistent with that scheme.
 # The scheme is as following: `v[0] * 100 + v[1], v[2], ICED_PATCH_VERSION`
-exports.ICED_VERSION = '112.8.0'
+exports.ICED_VERSION = '112.8.1'
 
 try
   # If available, use version from package.json. Require `package.json`, which
   # is two levels above this file, as this file is typically evaluated from
-  # `lib/coffee-script`. 
+  # `lib/coffee-script`.
   # TODO: UNDECIDED
   # packageJson   = require '../../package.json'
   # exports.VERSION = packageJson.version
@@ -72,6 +74,10 @@ sources = {}
 # Also save source maps if generated, in form of `filename`: `(source map)`.
 sourceMaps = {}
 
+# "filename" used as module.filename when no filename was provided,
+# e.g. when using CoffeeScript.run directly.
+ANONYMOUS_TAG = '<anonymous iced3>'
+
 # Compile CoffeeScript code to JavaScript, using the Coffee/Jison compiler.
 #
 # If `options.sourceMap` is specified, then `options.filename` must also be
@@ -89,7 +95,7 @@ exports.compile = compile = withPrettyErrors (code, options) ->
   # a filename we have no way to retrieve this source later in the event that
   # we need to recompile it to get a source map for `prepareStackTrace`.
   generateSourceMap = options.sourceMap or options.inlineMap or not options.filename?
-  filename = options.filename or '<anonymous>'
+  filename = options.filename or ANONYMOUS_TAG
 
   sources[filename] = code
   map = new SourceMap if generateSourceMap
@@ -140,13 +146,14 @@ exports.compile = compile = withPrettyErrors (code, options) ->
     js = "// #{header}\n#{js}"
 
   if generateSourceMap
+    options.sourceFiles = [filename]
     v3SourceMap = map.generate(options, code)
-    sourceMaps[filename] = map
+    sourceMaps[filename] = { map, v3SourceMap }
 
   if options.inlineMap
     encoded = base64encode JSON.stringify v3SourceMap
     sourceMapDataURI = "//# sourceMappingURL=data:application/json;base64,#{encoded}"
-    sourceURL = "//# sourceURL=#{options.filename ? 'coffeescript'}"
+    sourceURL = "//# sourceURL=#{options.filename ? 'iced-coffee-script'}"
     js = "#{js}\n#{sourceMapDataURI}\n#{sourceURL}"
 
   if options.sourceMap
@@ -179,7 +186,7 @@ exports.run = (code, options = {}) ->
 
   # Set the filename.
   mainModule.filename = process.argv[1] =
-    if options.filename then fs.realpathSync(options.filename) else '<anonymous>'
+    if options.filename then fs.realpathSync(options.filename) else ANONYMOUS_TAG
 
   # Clear the module cache.
   mainModule.moduleCache and= {}
@@ -370,20 +377,22 @@ formatSourcePosition = (frame, getSourceMapping) ->
   else
     fileLocation
 
-getSourceMap = (filename) ->
+# Either get cached source map, or compile again. For legacy
+# source map processing.
+getSourceMap = (filename, defaultAnonymous = no) ->
   if sourceMaps[filename]?
     sourceMaps[filename]
   # CoffeeScript compiled in a browser may get compiled with `options.filename`
-  # of `<anonymous>`, but the browser may request the stack trace with the
+  # of `<anonymous iced3>`, but the browser may request the stack trace with the
   # filename of the script file.
-  else if sourceMaps['<anonymous>']?
-    sourceMaps['<anonymous>']
+  else if defaultAnonymous and (anonMap = sourceMaps[ANONYMOUS_TAG])?
+    anonMap
   else if sources[filename]?
     answer = compile sources[filename],
       filename: filename
       sourceMap: yes
       literate: helpers.isLiterate filename
-    answer.sourceMap
+    answer
   else
     null
 
@@ -391,10 +400,17 @@ getSourceMap = (filename) ->
 # NodeJS / V8 have no support for transforming positions in stack traces using
 # sourceMap, so we must monkey-patch Error to display CoffeeScript source
 # positions.
-Error.prepareStackTrace = (err, stack) ->
+#
+# This is considered an outdated method of doing this as it doesn't support
+# installing multiple source map handlers for different compilers that may be
+# registered at the same time. It has to be enabled manually with:
+# ```
+# require('iced-coffee-script-3').installPrepareStackTrace()
+# ```
+prepareStackTrace = (err, stack) ->
   getSourceMapping = (filename, line, column) ->
-    sourceMap = getSourceMap filename
-    answer = sourceMap.sourceLocation [line - 1, column - 1] if sourceMap?
+    sourceMap = getSourceMap filename, yes
+    answer = sourceMap.map.sourceLocation [line - 1, column - 1] if sourceMap?
     if answer? then [answer[0] + 1, answer[1] + 1] else null
 
   frames = for frame in stack
@@ -402,3 +418,21 @@ Error.prepareStackTrace = (err, stack) ->
     "    at #{formatSourcePosition frame, getSourceMapping}"
 
   "#{err.toString()}\n#{frames.join '\n'}\n"
+
+exports.installPrepareStackTrace = ->
+  Error.prepareStackTrace = prepareStackTrace
+
+# Use source-map-support module to modify Error prototype to support source-map
+# translation of stack frames that come from iced files compiled by this instance
+# of IcedCoffeeScript compiler.
+exports.installSourceMapSupport = (opts, sourceMapSupport) ->
+  opts.retrieveSourceMap = (filename) ->
+    sourceMap = getSourceMap filename
+    if sourceMap
+      # It's compiled by us, return the source map.
+      return { map : sourceMap.v3SourceMap }
+    else
+      # Defer to next (or default) handler in source-map-support.
+      return null
+
+  (sourceMapSupport ? source_map_support_lazy()).install opts

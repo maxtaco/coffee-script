@@ -3,7 +3,7 @@
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
   <title>CoffeeScript Test Suite</title>
-  <script src="browser-compiler/coffee-script.js"></script>
+  <script src="browser-compiler/iced-coffee-script.js"></script>
   <script src="https://cdn.jsdelivr.net/underscorejs/1.8.3/underscore-min.js"></script>
   <style>
     body, pre {
@@ -37,6 +37,14 @@
 <pre id="stdout"></pre>
 
 <script type="text/coffeescript">
+@iced = CoffeeScript.require 'iced-runtime-3'
+
+# In browser, use Coffeescripts's custom prepareStackTrace.
+# It knows how to handle truly anonymous compilation, where filenames
+# reported in call sites are not available at all, not even
+# "<anonymous iced3>".
+CoffeeScript.installPrepareStackTrace()
+
 @testingBrowser = yes
 @global = window
 stdout  = document.getElementById 'stdout'
@@ -60,6 +68,17 @@ say = (msg, className) ->
     say fn.toString(), 'subtle' if fn.toString?
     say exception, 'bad'
     console.error exception
+
+@atest = (description, fn) ->
+  ++total
+  fn.call fn, (ok, obj) ->
+    if ok
+      ++success
+    else
+      say "#{description}:", 'bad'
+      say fn.toString(), 'subtle' if fn.toString?
+      say obj, 'bad'
+      console.error ok, obj
 
 @ok = (good, msg = 'Error') ->
   throw Error msg unless good
@@ -106,6 +125,8 @@ arrayEgal = (a, b) ->
     if err
       if typeof err is 'function' and e instanceof err # Handle comparing exceptions
         ok yes
+      else if err instanceof RegExp
+        ok err.test(e.toString())
       else if e.toString().indexOf('[stdin]') is 0 # Handle comparing error messages
         ok err e
       else
@@ -3515,7 +3536,7 @@ test "compiler error formatting with mixed tab and space", ->
   '''
 
 
-if require?
+unless global.testingBrowser
   os   = require 'os'
   fs   = require 'fs'
   path = require 'path'
@@ -3525,8 +3546,10 @@ if require?
     ok err.stack.match /test[\/\\]error_messages\.coffee:\d+:\d+\b/
 
   test "patchStackTrace stack prelude consistent with V8", ->
+    # This test freezes error stack trace formatting but that
+    # ultimately depends on 'source-map-support' library.
     err = new Error
-    ok err.stack.match /^Error\n/ # Notice no colon when no message.
+    ok err.stack.match /^Error: \n/
 
     err = new Error 'error'
     ok err.stack.match /^Error: error\n/
@@ -3584,7 +3607,6 @@ if require?
     # and not line 6 (the generated JavaScript).
     eq /StackTraceLineNumberTestFile.coffee:(\d)/.exec(error.stack.toString())[1], '3'
 
-
 test "#4418 stack traces for compiled strings reference the correct line number", ->
   try
     CoffeeScript.run """
@@ -3599,7 +3621,6 @@ test "#4418 stack traces for compiled strings reference the correct line number"
   # Make sure the line number reported is line 3 (the original Coffee source)
   # and not line 6 (the generated JavaScript).
   eq /at testCompiledStringStackTraceLineNumber.*:(\d):/.exec(error.stack.toString())[1], '3'
-
 
 test "#1096: unexpected generated tokens", ->
   # Implicit ends
@@ -6855,6 +6876,15 @@ delay = (cb, i) ->
    i = i || 3
    setTimeout cb, i
 
+atest "cb scoping", (cb) ->
+  # Common pattern used in iced programming - ensure
+  # scoping rules here do not change for any reason.
+  foo = (cb) ->
+    await delay defer()
+    cb false, {} # to be ignored - we should call foo's func cb, not outer func cb
+  await foo defer()
+  cb true, {}
+
 atest "nested of/in loop", (cb) ->
   counter = 0
   bar = () ->
@@ -6872,7 +6902,7 @@ atest "basic iced waiting", (cb) ->
    i++
    cb(i is 2, {})
 
-foo = (i, cb) ->
+glfoo = (i, cb) ->
   await delay(defer(), i)
   cb(i)
 
@@ -6884,7 +6914,7 @@ atest "basic iced waiting", (cb) ->
 
 atest "basic iced trigger values", (cb) ->
    i = 10
-   await foo(i, defer j)
+   await glfoo(i, defer j)
    cb(i is j, {})
 
 atest "basic iced set structs", (cb) ->
@@ -6892,7 +6922,7 @@ atest "basic iced set structs", (cb) ->
    i = 10
    obj = { cat : { dog : 0 } }
    await
-     foo(i, defer obj.cat[field])
+     glfoo(i, defer obj.cat[field])
      field = "bar" # change the field to make sure that we captured "yo"
    cb(obj.cat.yo is i, {})
 
@@ -7230,6 +7260,17 @@ atest 'defer + arguments 2', (cb) ->
   eq x, 2
   cb x, {}
 
+atest 'defer + arguments 3', (cb) ->
+  x = null
+  foo = (a,b,c,cb) ->
+    @x = arguments[1]
+    await delay defer()
+    cb null
+  obj = {}
+  await foo.call obj, 1, 2, 3, defer()
+  eq obj.x, 2
+  cb true, {}
+
 test 'arguments array without await', ->
   code = CoffeeScript.compile "fun = -> console.log(arguments)"
   eq code.indexOf("_arguments"), -1
@@ -7368,6 +7409,35 @@ atest 'defer + class member assignments', (cb) ->
   c = new MyClass2()
   await c.f defer z
   cb(c.x is 3 and c.y is 4 and z is 5,  {})
+
+atest 'defer + class member assignments 2', (cb) ->
+  foo = (cb) ->
+    await delay defer()
+    cb null, 1, 2, 3
+  class Bar
+    b : (cb) ->
+      await delay defer()
+      await foo defer err, @x, @y, @z
+      cb null
+  c = new Bar()
+  await c.b defer()
+  cb c.x is 1 and c.y is 2 and c.z is 3, {}
+
+atest 'defer + class member assignments 3', (cb) ->
+  foo = (cb) ->
+    await delay defer()
+    cb null, 1, 2, 3
+  class Bar
+    b : (cb) ->
+      await delay defer()
+      bfoo = (cb) =>
+        await foo defer err, @x, @y, @z
+        cb null
+      await bfoo defer()
+      cb null
+  c = new Bar()
+  await c.b defer()
+  cb c.x is 1 and c.y is 2 and c.z is 3, {}
 
 # tests bug #146 (github.com/maxtaco/coffee-script/issues/146)
 atest 'deferral variable with same name as a parameter in outer scope', (cb) ->
@@ -7783,10 +7853,10 @@ atest "overused deferral error message", (test_cb) ->
 
 atest "overused deferral error message 2", (test_cb) ->
   wrap_error test_cb, (msg) ->
-    msg.indexOf('test/iced.coffee:') != -1 and msg.indexOf('A.b') != -1
+    msg.indexOf('test/iced.coffee:') != -1 and msg.indexOf('A::b') != -1
 
   class A
-    b: () ->
+    b : () ->
       foo = (cb) -> cb(); cb()
       await foo defer()
 
@@ -7794,7 +7864,7 @@ atest "overused deferral error message 2", (test_cb) ->
 
 atest "overused deferral error message 3", (test_cb) ->
   wrap_error test_cb, (msg) ->
-    msg.indexOf('test/iced.coffee:') != -1 and msg.indexOf('<anon_func>') != -1
+    msg.indexOf('test/iced.coffee:') != -1 and msg.indexOf('anon_func') != -1
 
   anon_func = ->
     foo = (cb) -> cb(); cb()
@@ -7877,6 +7947,92 @@ test "non-existing builtin fallback", ->
 
   obj2 = { version : __builtin_iced_version_x ? "unknown" }
   eq obj2.version, "unknown"
+
+atest 'async function and this-binding 1', (cb) ->
+  a = (cb) ->
+    await delay defer()
+    @x = 5
+    cb null
+  obj = {}
+  await a.call(obj, defer())
+  cb obj.x is 5, {}
+
+atest 'async function and this-binding 2', (cb) ->
+  obj = {}
+  a = (cb) ->
+    b = (cb) =>
+      await delay defer()
+      ok @ is obj
+      cb null
+    await b defer()
+    # passing another `this` using `call` should not do anything
+    # because b is bound.
+    await b.call {}, defer()
+    cb null
+  await a.call(obj, defer())
+  cb true, {}
+
+atest 'async function and this-binding 3', (cb) ->
+  obj1 = {}
+  obj2 = {}
+  a = (cb) ->
+    ok @ is obj1
+    b = (cb) ->
+      await delay defer()
+      ok @ is obj2
+      cb null
+    ok @ is obj1
+    await b.call obj2, defer()
+    ok @ is obj1
+    cb null
+  await a.call obj1, defer()
+  cb true, {}
+
+atest 'this-binding in string interpolations', (cb) ->
+  class A
+    constructor : (@name) ->
+    a : (cb) ->
+      m = "Hello #{@name}"
+      await delay defer()
+      zzz = () -> ok no
+      cb m
+  obj = new A("world")
+  await obj.a defer msg
+  cb msg is "Hello world", {}
+
+atest 'this-binding in class method', (cb) ->
+  class A
+    constructor : () -> @test = 0
+    foo : (cb) ->
+      bar = (cb) =>
+        await delay defer()
+        @test++
+        cb null
+      await bar defer()
+      await bar.call {}, defer()
+      cb null
+  obj = new A()
+  await obj.foo defer()
+  cb obj.test is 2, {}
+
+# test "caller name compatibility", () ->
+#   main_sync = () ->
+#     foo = () ->
+#       caller = foo.caller?.name
+#       eq caller, "main_sync"
+#     x = foo()
+#   main_sync()
+
+# atest "(async) caller name compatibility", (cb) ->
+#   main_async = (cb) ->
+#     main_async.name2 = 'main_async'
+#     foo = () ->
+#       caller = foo.caller?.name2
+#       eq caller.caller, "main_async"
+#     x = foo()
+#     await delay defer()
+#     cb true, {}
+#   main_async cb
 
 </script>
 <script type="text/x-coffeescript" class="test" id="iced_advanced">
@@ -7983,7 +8139,6 @@ if require?
     ok = false if out[0]
     cb(ok, {})
 
-
 ##----------------------------------------------------------------------
 
   atest "stack walk", (cb) ->
@@ -8011,7 +8166,6 @@ if require?
     await foo defer()
     cb(check, {})
 
-
 ##----------------------------------------------------------------------
 
   atest "multi", (cb) ->
@@ -8029,8 +8183,59 @@ if require?
     await rv.wait defer()
     cb(true, {})
 
+</script>
+<script type="text/x-coffeescript" class="test" id="iced_trace_names">
+compileAndGetTraceNames = (src) ->
+  traces = []
+  nodes = CoffeeScript.nodes src, { bare : true }
+  nodes.compile()
+  nodes.traverseChildren true, (x) -> traces.push n if n = x.icedTraceName
+  traces.filter((x) -> x)
 
+test "nested functions 1", ->
+  src = """
+    foo = ->
+      y = ->
+    """
+  traces = compileAndGetTraceNames(src)
+  # TODO: Ideally, instead of 'y' we want 'foo.y' or something similar.
+  deepEqual traces, ['foo', 'y']
 
+test "class methods", ->
+  src = """
+    class B
+      y : ->
+      z = ->
+    """
+  traces = compileAndGetTraceNames(src)
+  deepEqual traces, ['B::y', 'B::#z']
+
+  src = """
+    exports.B = class C
+      y : ->
+      z = ->
+    """
+  traces = compileAndGetTraceNames(src)
+  deepEqual traces, ['C::y', 'C::#z']
+
+test "object method", ->
+  src = "exports.x = ->"
+  traces = compileAndGetTraceNames(src)
+  deepEqual traces, ['exports.x']
+
+  src = "exports.x = x = ->"
+  traces = compileAndGetTraceNames(src)
+  deepEqual traces, ['x']
+
+test "object methods 2", ->
+  src = """
+    zzz =
+      foo : ->
+      bar : ->
+  """
+  traces = compileAndGetTraceNames(src)
+  # TODO: We want `zzz.foo` and `zzz.bar` instead.
+  deepEqual traces, ['foo', 'bar']
 
 </script>
 <script type="text/x-coffeescript" class="test" id="importing">

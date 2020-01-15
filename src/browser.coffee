@@ -16,6 +16,10 @@ CoffeeScript.eval = (code, options = {}) ->
 CoffeeScript.run = (code, options = {}) ->
   options.bare      = on
   options.shiftLine = on
+  # Note: the stack trace will always show `<anonymous>` for stacks within the body
+  # of this function, and there is no way to change it to anything else. This means
+  # it's incompatible with localizing stack traces using `installSourceMapSupport`
+  # (see coffee-script.coffee).
   Function(compile code, options)()
 
 # If we're not in a browser environment, we're finished with the public API.

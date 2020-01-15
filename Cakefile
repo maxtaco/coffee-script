@@ -449,7 +449,7 @@ runTests = (CoffeeScript) ->
 
   # End Iced additions
   # ----
-  
+
   helpers.extend global, require './test/support/helpers'
 
   # When all the tests have run, collect and print errors.
@@ -519,6 +519,10 @@ task 'test:browser', 'run the test suite against the merged browser script', ->
   result = {}
   global.testingBrowser = yes
   (-> eval source).call result
+  # When testing browser build, install custom prepareStackTrace handler instead
+  # of source-map-support. `CoffeeScript.run` is pulled from `browser.coffee` in
+  # browser build, and it's incompatible with our source-map-support hooks.
+  result.CoffeeScript.installPrepareStackTrace()
   testResults = runTests result.CoffeeScript
 
 task 'check_version', 'Check version between package.json and version compiled in', ->

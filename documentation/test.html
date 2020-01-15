@@ -3,7 +3,7 @@
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
   <title>CoffeeScript Test Suite</title>
-  <script src="browser-compiler/coffee-script.js"></script>
+  <script src="browser-compiler/iced-coffee-script.js"></script>
   <script src="https://cdn.jsdelivr.net/underscorejs/1.8.3/underscore-min.js"></script>
   <style>
     body, pre {
@@ -37,6 +37,14 @@
 <pre id="stdout"></pre>
 
 <script type="text/coffeescript">
+@iced = CoffeeScript.require 'iced-runtime-3'
+
+# In browser, use Coffeescripts's custom prepareStackTrace.
+# It knows how to handle truly anonymous compilation, where filenames
+# reported in call sites are not available at all, not even
+# "<anonymous iced3>".
+CoffeeScript.installPrepareStackTrace()
+
 @testingBrowser = yes
 @global = window
 stdout  = document.getElementById 'stdout'
@@ -60,6 +68,17 @@ say = (msg, className) ->
     say fn.toString(), 'subtle' if fn.toString?
     say exception, 'bad'
     console.error exception
+
+@atest = (description, fn) ->
+  ++total
+  fn.call fn, (ok, obj) ->
+    if ok
+      ++success
+    else
+      say "#{description}:", 'bad'
+      say fn.toString(), 'subtle' if fn.toString?
+      say obj, 'bad'
+      console.error ok, obj
 
 @ok = (good, msg = 'Error') ->
   throw Error msg unless good
@@ -85,6 +104,8 @@ say = (msg, className) ->
     if err
       if typeof err is 'function' and e instanceof err # Handle comparing exceptions
         ok yes
+      else if err instanceof RegExp
+        ok err.test(e.toString())
       else if e.toString().indexOf('[stdin]') is 0 # Handle comparing error messages
         ok err e
       else
